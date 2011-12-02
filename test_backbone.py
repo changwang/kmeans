@@ -52,41 +52,41 @@ class TestCluster:
         assert self.cluster2.centroid == Point(0, 5, 5)
     
     def test_calc_centroid(self):
-        self.cluster1.add(self.pt1)
-        self.cluster1.add(self.pt2)
-        self.cluster1.add(self.pt3)
-        self.cluster1.add(self.pt4)
+        self.cluster1.add_point(self.pt1)
+        self.cluster1.add_point(self.pt2)
+        self.cluster1.add_point(self.pt3)
+        self.cluster1.add_point(self.pt4)
         
         self.cluster1.centroid = self.cluster1.calc_centroid()
         #print self.cluster1.centroid
         assert self.cluster1.centroid == Point(0, 1.5, 1.5)
         
-        self.cluster1.add(self.pt5)
+        self.cluster1.add_point(self.pt5)
         self.cluster1.centroid = self.cluster1.calc_centroid()
         assert self.cluster1.centroid == Point(0, 2, 2)
         
-        self.cluster2.add(self.pt5)
-        self.cluster2.add(self.pt6)
+        self.cluster2.add_point(self.pt5)
+        self.cluster2.add_point(self.pt6)
         self.cluster2.centroid = self.cluster2.calc_centroid()
         assert self.cluster2.centroid == Point(0, 4.5, 4.5)
         
     def test_update(self):
-        self.cluster1.add(self.pt1)
-        self.cluster1.add(self.pt2)
-        self.cluster1.add(self.pt3)
-        self.cluster1.add(self.pt4)
+        self.cluster1.add_point(self.pt1)
+        self.cluster1.add_point(self.pt2)
+        self.cluster1.add_point(self.pt3)
+        self.cluster1.add_point(self.pt4)
         
         self.cluster1.centroid = self.cluster1.calc_centroid()
         
-        self.cluster1.add(self.pt5)
+        self.cluster1.add_point(self.pt5)
 
         assert self.cluster1.update() == math.sqrt((2.0-1.5)**2 + (2.0-1.5)**2)
         
     def test_radius(self):
-        self.cluster1.add(self.pt1)
-        self.cluster1.add(self.pt2)
-        self.cluster1.add(self.pt3)
-        self.cluster1.add(self.pt4)
+        self.cluster1.add_point(self.pt1)
+        self.cluster1.add_point(self.pt2)
+        self.cluster1.add_point(self.pt3)
+        self.cluster1.add_point(self.pt4)
         
         self.cluster1.centroid = self.cluster1.calc_centroid()
         self.cluster1.update()
@@ -218,8 +218,8 @@ def test_intra_cost():
 
     kmeans([pt1, pt2, pt3, pt4, pt5, pt6], [cluster1, cluster2])
     create_backbone_network({}, [cluster1, cluster2], [pt1, pt2, pt3, pt4, pt5, pt6])
-    assert intra_cost([cluster1, cluster2], cluster1) == 5
-    assert intra_cost([cluster1, cluster2], cluster2) == 5
+    assert intra_cost([cluster1, cluster2], cluster1) == 10
+    assert intra_cost([cluster1, cluster2], cluster2) == 10
 
 def test_door_matt_cost():
     pt1 = Point(1, 0, 0)
@@ -238,6 +238,9 @@ def test_door_matt_cost():
     cluster2.label = 'b'
 
     kmeans([pt1, pt2, pt3, pt4, pt5, pt6], [cluster1, cluster2])
-    create_backbone_network({}, [cluster1, cluster2], [pt1, pt2, pt3, pt4, pt5, pt6])
-    assert door_matt_cost([cluster1, cluster2], cluster1) == 0
-    assert door_matt_cost([cluster1, cluster2], cluster2) == 0
+    G = {}
+    Cache = {}
+    create_backbone_network(G, [cluster1, cluster2], [pt1, pt2, pt3, pt4, pt5, pt6])
+    find_all_shortest_paths([cluster1, cluster2], Cache, G)
+    assert door_matt_cost([cluster1, cluster2], cluster1, Cache) == 0
+    assert door_matt_cost([cluster1, cluster2], cluster2, Cache) == 0

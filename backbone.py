@@ -68,7 +68,7 @@ class Cluster(object):
         self.intra_cost = 0
         self.dm_cost = 0
 
-    def add(self, pt):
+    def add_point(self, pt):
         """ adds new point to the cluster. """
         self.points.append(pt)
 
@@ -114,23 +114,6 @@ def create_points(N, M):
     idx = 0
     coords = []
     points = []
-    # for ele in arr:
-    #     pt = Point(x = ele[0], y = ele[1])
-    #     if pt not in points:
-    #         idx += 1
-    #         pt.id = idx
-    #         points.append(pt)
-
-    # if previous step creates duplicated points,
-    # we have to make sure create more points.
-    # while idx < M:
-    #     print "Am I possible got called?"
-    #     missed = numpy.random.randint(0, N+1, size=(1, 2))
-    #     pt = Point(x = missed[0][0], y = missed[0][1])
-    #     if pt not in points:
-    #         idx += 1
-    #         pt.id = idx
-    #         points.append(pt)
     
     for ele in arr:
         if (ele[0], ele[1]) not in coords:
@@ -150,6 +133,15 @@ def create_points(N, M):
 
     return points
 
+def _cluster_name(index):
+    """
+    generates cluster's name based on given number,
+    from a to z, if index is larger than 26,
+    then use aa to az, ba to bz, etc.
+    """
+    if index < 26: return chr(97+index)
+    else: return 'a'+chr(71+index)
+
 def create_clusters(N, K):
     """ 
     create randomly distributed k clusters.
@@ -160,7 +152,7 @@ def create_clusters(N, K):
     centroids = create_points(N, K)
     for idx, centroid in enumerate(centroids):
         cluster = Cluster(centroid)
-        cluster.label = chr(96+idx+1)
+        cluster.label = _cluster_name(idx)
         clusters.append(cluster)
     return clusters
 
@@ -186,7 +178,7 @@ def kmeans(points, clusters, threshold=1e-10):
                 if min_dis > dis:
                     min_dis = dis
                     min_cls = clst
-            min_cls.add(pt)
+            min_cls.add_point(pt)
         diff = 0.0
 
         for clst in clusters:
@@ -237,7 +229,7 @@ def _dijkstra(G, start, end=None):
                 predecessors[neigh] = pt
     return distances, predecessors
 
-def shortest_path(G, start, end):
+def shortest_path(G, start, end, sp_cache):
     """
     finds a single shortest path from given start point to the given end point.
     first check whether it is in the cached shortest path table (SP_TABLE),
@@ -245,9 +237,9 @@ def shortest_path(G, start, end):
     otherwise calculate the new shortest path and store it to the cache table.
     """
     if (start, end) in SP_TABLE:
-        return SP_TABLE[(start, end)]
+        return sp_cache[(start, end)]
     elif (end, start) in SP_TABLE:
-        return SP_TABLE[(end, start)]
+        return sp_cache[(end, start)]
     else:
         D, P = _dijkstra(G, start, end)
         path = []
@@ -257,16 +249,20 @@ def shortest_path(G, start, end):
             if end == start: break
             end = P[end]
         path.reverse()
-        SP_TABLE[(start, temp)] = path
+        sp_cache[(start, temp)] = path
         return path
     
-def find_all_shortest_paths(clusters, cached):
-    """ finds all shortest paths and stores them in the shortest path table. """
-    cached.clear()    # clear cached table for new size of clusters
-    for clst1 in clusters:
-        for clst2 in clusters:
-            if clst1 != clst2:
-                shortest_path(GRAPH, clst1.label, clst2.label)
+def find_all_shortest_paths(clusters, sp_cache, G):
+    """
+    finds all shortest paths and stores them in the shortest path table.
+    sp_cache means the shortest path table
+    G is the graph
+    """
+    sp_cache.clear()    # clear cached table for new size of clusters
+    for src in clusters:
+        for dest in clusters:
+            if src != dest:
+                shortest_path(G, src.label, dest.label, sp_cache)
 
 def inter_cost(cluster):
     """
@@ -290,12 +286,12 @@ def intra_cost(clusters, cluster):
     cluster: given cluster
     """
     intra_sum = 0
-    for src in cluster.points:
-        for clst in clusters:
-            if clst != cluster:
-                for dest in clst.points:
-                    intra_sum += src.frequency(dest)
-    return int(intra_sum/2)
+    for src_pt in cluster.points:
+        for peer in clusters:
+            if peer != cluster:
+                for dest_pt in peer.points:
+                    intra_sum += src_pt.frequency(dest_pt)
+    return int(intra_sum)
     
 def _door_matt(sclst, eclst):
     """
@@ -309,7 +305,7 @@ def _door_matt(sclst, eclst):
             dm_sum += src.frequency(dest)
     return int(dm_sum)
 
-def door_matt_cost(clusters, cluster):
+def door_matt_cost(clusters, cluster, sp_cache):
     """
     calculates the door matt effect cost.
     cluster: given cluster which participates as a stepping stone
@@ -318,33 +314,12 @@ def door_matt_cost(clusters, cluster):
     # checks shortest path table, finds all path larger than 3,
     # then the cluster between will be used as door matt.
     dm_sum = 0
-    for path in SP_TABLE.values():
+    for path in sp_cache.values():
         if (len(path) > 2) and (cluster.label in path[1:-1]):
             src = find_cluster(clusters, path[0])
             dest = find_cluster(clusters, path[-1])
             dm_sum += _door_matt(src, dest)
     return int(dm_sum)
-
-# def _shortest(start, end, path, visited):
-#     if start == end:
-#         path[:] = [end]
-#         return 0
-#     
-#     currentBestLen = sys.maxint
-#     currentBestRoute = []
-#     visited.append(start)
-#     for neigh in start.connections:
-#         if neigh in visited: continue
-#         # visited.append(neigh)
-#         aiResult = []
-#         cost = _shortest(neigh, end, aiResult, visited)
-#         # visited.remove(neigh)
-#         if cost + start.connections[neigh] < currentBestLen:
-#             currentBestLen = cost + start.connections[neigh]
-#             currentBestRoute = [start] + aiResult
-#     path[:] = currentBestRoute
-#     visited.remove(start)
-#     return currentBestLen
 
 def draw_plot(points, clusters):
     plot.title("k-means back bone network")
@@ -361,34 +336,34 @@ def draw_plot(points, clusters):
         plot.plot([clst.centroid.x], [clst.centroid.y], '^')
         plot.plot([pt.x for pt in clst.points], [pt.y for pt in clst.points], 'o')
 
-        draw_connections(plot, GRAPH, clusters)
+        draw_connections(plot, clusters, SP_TABLE)
     plot.grid(True)
     plot.show()
-    
-def draw_connections(plot, graph, clusters):
-    for start in graph:
-        sc = find_cluster(clusters, start)
-        for ec in sc.neighbour:
-            plot.plot([sc.centroid.x, ec.centroid.x], [sc.centroid.y, ec.centroid.y], '-k', linewidth=0.1)
-            
+
+def draw_connections(plot, clusters, sp_cache):
+    for path in sp_cache:
+        clsts = [find_cluster(clusters, lb) for lb in sp_cache[path]]
+        plot.plot([c.centroid.x for c in clsts], [c.centroid.y for c in clsts], '-k', linewidth=0.05)
+
+inters = []
 def total_cost(clusters):
     inter = 0
     intra = 0
     dm = 0
-    total = 0
     for clst in clusters:
-        print clst.label, "has cost: ", str(clst.inter_cost), str(clst.intra_cost), str(clst.dm_cost)
+        # print clst.label, "has cost: ", str(clst.inter_cost), str(clst.intra_cost), str(clst.dm_cost)
         inter += clst.inter_cost
         intra += clst.intra_cost
         dm += clst.dm_cost
-        # total += (clst.inter_cost + clst.intra_cost + clst.dm_cost)
+        #total += (clst.inter_cost + clst.intra_cost + clst.dm_cost)
     total = inter + intra + dm
-    return (inter, intra, dm, total)
-    # return total
+    inters.append(inter)
+    print "inter " + str(inter) + " intra " + str(intra) + " dm " + str(dm) + " total " + str(total)
+    return inter, intra, dm, total
 
 def draw_cost_plot(hori, verts):
     plot.title('find cost')
-    plot.xticks(range(-1, 40, 1))
+    plot.xticks(range(-1, 100, 1))
     
     _draw_line(plot, hori, verts[0], 'g')
     _draw_line(plot, hori, verts[1], 'b')
@@ -409,7 +384,9 @@ def main():
     if DEBUG:
         Ks = [10]
     else:
-        Ks = [3, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 25, 30]
+        #Ks = [3, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 25, 30]
+        #Ks = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+        Ks = range(1, 10)
     
     iec = []
     iac = []
@@ -427,16 +404,16 @@ def main():
         kmeans(points, clusters)
 #        print "Finished creating kmeans algorithm"
 
-        create_backbone_network(GRAPH, clusters, math.sqrt(3)*25/2.0)
+        create_backbone_network(GRAPH, clusters, math.sqrt(2)*25/2.0)
 #        print "Finished creating backbone network"
 
-        find_all_shortest_paths(clusters, SP_TABLE)
+        find_all_shortest_paths(clusters, SP_TABLE, GRAPH)
 #        print "Finished finding all shortest paths"
     
         for clst in clusters:
             clst.inter_cost = inter_cost(clst)
             clst.intra_cost = intra_cost(clusters, clst)
-            clst.dm_cost = door_matt_cost(clusters, clst)
+            clst.dm_cost = door_matt_cost(clusters, clst, SP_TABLE)
 
         ret = total_cost(clusters)
         iec.append(ret[0])
@@ -445,7 +422,8 @@ def main():
         costs.append(ret[3])
         # costs.append(total_cost(clusters))
     draw_cost_plot(Ks, [iec, iac, dmc, costs])
-    # draw_plot(points, clusters)
+    draw_plot(points, clusters)
+    print inters
 
 if __name__ == '__main__':
     if DEBUG:
