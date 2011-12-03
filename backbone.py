@@ -291,7 +291,7 @@ def intra_cost(clusters, cluster):
             if peer != cluster:
                 for dest_pt in peer.points:
                     intra_sum += src_pt.frequency(dest_pt)
-    return int(intra_sum)
+    return int(intra_sum*2)
     
 def _door_matt(sclst, eclst):
     """
@@ -330,7 +330,8 @@ def draw_plot(points, clusters):
     for pt in points:
         plot.text(pt.x+0.1, pt.y+0.1, str(pt.id))
     for clst in clusters:
-        color = (numpy.random.rand(), numpy.random.rand(), numpy.random.rand())
+        color = tuple(numpy.random.rand(1, 3)[0])
+        print color
         cir = plot.Circle((clst.centroid.x, clst.centroid.y), radius=clst.radius, alpha=0.3, fc=color)
         plot.gca().add_patch(cir)
         plot.plot([clst.centroid.x], [clst.centroid.y], '^')
@@ -345,10 +346,10 @@ def draw_connections(plot, clusters, sp_cache):
         clsts = [find_cluster(clusters, lb) for lb in sp_cache[path]]
         plot.plot([c.centroid.x for c in clsts], [c.centroid.y for c in clsts], '-k', linewidth=0.05)
 
-inters = []
 def total_cost(clusters):
     inter = 0
     intra = 0
+    inr = 0
     dm = 0
     for clst in clusters:
         # print clst.label, "has cost: ", str(clst.inter_cost), str(clst.intra_cost), str(clst.dm_cost)
@@ -357,25 +358,30 @@ def total_cost(clusters):
         dm += clst.dm_cost
         #total += (clst.inter_cost + clst.intra_cost + clst.dm_cost)
     total = inter + intra + dm
-    inters.append(inter)
-    print "inter " + str(inter) + " intra " + str(intra) + " dm " + str(dm) + " total " + str(total)
+    inr = inter + intra
+    print "inter " + str(inter) + " intra " + str(intra) + " dm " + str(dm) + " total " + str(total) + " in " + str(inr)
     return inter, intra, dm, total
 
 def draw_cost_plot(hori, verts):
     plot.title('find cost')
     plot.xticks(range(-1, 100, 1))
     
-    _draw_line(plot, hori, verts[0], 'g')
-    _draw_line(plot, hori, verts[1], 'b')
-    _draw_line(plot, hori, verts[2], 'r')
-    _draw_line(plot, hori, verts[3], 'k')
+    _draw_line(plot, hori, verts[0], 'g', 'inter')
+    _draw_line(plot, hori, verts[1], 'b', 'intra')
+    _draw_line(plot, hori, verts[2], 'r', 'door matt')
+    _draw_line(plot, hori, verts[3], 'k', 'total')
+    v = []
+    for i in range(len(verts[0])):
+        v.append(verts[0][i] + verts[1][i])
+    _draw_line(plot, hori, v, 'y', 'inter + intra')
     # plot.plot(hori, vert, '-o')
     
     plot.grid(True)
     plot.show()
     
-def _draw_line(plot, hori, vert, color):
+def _draw_line(plot, hori, vert, color, text):
     plot.plot(hori, vert, '-o'+color)
+    plot.text(hori[-1]-3, vert[-1]+2, text)
     
 DEBUG = False
 
@@ -384,21 +390,22 @@ def main():
     if DEBUG:
         Ks = [10]
     else:
+        Ks = [10]
         #Ks = [3, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 25, 30]
         #Ks = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
-        Ks = range(1, 10)
+        #Ks = range(1, 10)
     
     iec = []
     iac = []
     dmc = []
     costs = []
     
-    points = create_points(25, 100)
+    points = create_points(25, 200)
 
     clusters = None
     
     for k in Ks:
-        print "===================", k, "=========================="
+        print "==========================", k, "=========================="
         clusters = create_clusters(25, k)
 
         kmeans(points, clusters)
@@ -423,7 +430,6 @@ def main():
         # costs.append(total_cost(clusters))
     draw_cost_plot(Ks, [iec, iac, dmc, costs])
     draw_plot(points, clusters)
-    print inters
 
 if __name__ == '__main__':
     if DEBUG:
