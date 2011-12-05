@@ -48,8 +48,8 @@ class TestCluster:
         self.pt6 = Point(6, 5, 5)
         
     def test_cluster(self):
-        assert self.cluster1.centroid == Point(0, 1, 2)
-        assert self.cluster2.centroid == Point(0, 5, 5)
+        assert self.cluster1.centroid == Point(x=1, y=2)
+        assert self.cluster2.centroid == Point(x=5, y=5)
     
     def test_calc_centroid(self):
         self.cluster1.add_point(self.pt1)
@@ -59,16 +59,16 @@ class TestCluster:
         
         self.cluster1.centroid = self.cluster1.calc_centroid()
         #print self.cluster1.centroid
-        assert self.cluster1.centroid == Point(0, 1.5, 1.5)
+        assert self.cluster1.centroid == Point(x = 1.5, y = 1.5)
         
         self.cluster1.add_point(self.pt5)
         self.cluster1.centroid = self.cluster1.calc_centroid()
-        assert self.cluster1.centroid == Point(0, 2, 2)
+        assert self.cluster1.centroid == Point(x = 2, y = 2)
         
         self.cluster2.add_point(self.pt5)
         self.cluster2.add_point(self.pt6)
         self.cluster2.centroid = self.cluster2.calc_centroid()
-        assert self.cluster2.centroid == Point(0, 4.5, 4.5)
+        assert self.cluster2.centroid == Point(x = 4.5, y = 4.5)
         
     def test_update(self):
         self.cluster1.add_point(self.pt1)
@@ -93,8 +93,8 @@ class TestCluster:
         assert self.cluster1.radius == math.sqrt((1.5 ** 2) * 2) + 0.1
         
     def test_equal_clusters(self):
-        assert self.cluster1 == Cluster(Point(0, 1, 2))
-        assert self.cluster2 == Cluster(Point(0, 5.0, 5.0))
+        assert self.cluster1 == Cluster(Point(x = 1, y = 2))
+        assert self.cluster2 == Cluster(Point(x = 5.0, y = 5.0))
         
     def test_not_equal_cluster(self):
         assert self.cluster1 != self.cluster2
@@ -105,8 +105,8 @@ def test_create_points():
     
     for idx, pt in enumerate(pts):
         assert (idx + 1) == pt.id
-        assert pt.x >= 0 and pt.x < 26 and pt.y >= 0 and pt.y < 26
-        
+        assert 26 > pt.x >= 0 <= pt.y < 26
+
 def test_create_points_have_no_dups():
     pts = create_points(25, 100)
     
@@ -140,10 +140,10 @@ def test_kmeans():
     
     kmeans([pt1, pt2, pt3, pt4, pt5, pt6], [cluster1, cluster2])
     assert len(cluster1.points) == 4
-    assert cluster1.centroid == Point(0, 1.5, 1.5)
+    assert cluster1.centroid == Point(x = 1.5, y = 1.5)
     
     assert len(cluster2.points) == 2
-    assert cluster2.centroid == Point(0, 4.5, 4.5)
+    assert cluster2.centroid == Point(x = 4.5, y = 4.5)
 
 def test_backbone_network():
     pt1 = Point(1, 0, 0)
@@ -172,12 +172,15 @@ def test_backbone_network():
     assert graph[cluster2.label][cluster1.label] == cluster2.neighbour.values()[0]
 
 
-def test_find_cluster():
-    clusters = create_clusters(10, 3)
+#def test_find_cluster():
+#    clusters = create_clusters(10, 3)
+#
+#    assert clusters[0] == _find_cluster(clusters, 'a')
+#    assert clusters[1] == _find_cluster(clusters, 'b')
+#    assert clusters[2] == _find_cluster(clusters, 'c')
 
-    assert clusters[0] == find_cluster(clusters, 'a')
-    assert clusters[1] == find_cluster(clusters, 'b')
-    assert clusters[2] == find_cluster(clusters, 'c')
+def test_shortest_paths():
+    pass
 
 def test_inter_cost():
     pt1 = Point(1, 0, 0)
@@ -218,8 +221,8 @@ def test_intra_cost():
 
     kmeans([pt1, pt2, pt3, pt4, pt5, pt6], [cluster1, cluster2])
     create_backbone_network({}, [cluster1, cluster2], [pt1, pt2, pt3, pt4, pt5, pt6])
-    assert intra_cost([cluster1, cluster2], cluster1) == 10
-    assert intra_cost([cluster1, cluster2], cluster2) == 10
+    assert intra_cost([pt1, pt2, pt3, pt4, pt5, pt6], cluster1) == 10
+    assert intra_cost([pt1, pt2, pt3, pt4, pt5, pt6], cluster2) == 10
 
 def test_door_matt_cost():
     pt1 = Point(1, 0, 0)

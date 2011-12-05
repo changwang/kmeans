@@ -110,7 +110,7 @@ def create_points(N, M):
     N: domain size of plane
     M: number of points
     """
-    arr = numpy.random.randint(0, N+1, size=(M, 2))
+    arr = numpy.random.randint(1, N+1, size=(M, 2))
     idx = 0
     coords = []
     points = []
@@ -121,11 +121,13 @@ def create_points(N, M):
             coords.append((ele[0], ele[1]))
     
     while idx < M:
-        missed = numpy.random.randint(0, N+1, size=(M-idx, 2))
+        missed = numpy.random.randint(1, N+1, size=(M-idx, 2))
         for ele in missed:
             if (ele[0], ele[1]) not in coords:
                 idx += 1
                 coords.append((ele[0], ele[1]))
+
+    # creates real points in the plane
     idx = 0
     for coord in coords:
         idx += 1
@@ -202,7 +204,7 @@ def create_backbone_network(G, clusters, distance):
                 clst.neighbour[peer] = dis
         G[clst.label] = neighbour
 
-def find_cluster(clusters, label):
+def _find_cluster(clusters, label):
     """ finds the exact cluster by given label"""
     for clst in clusters:
         if clst.label == label: return clst
@@ -229,7 +231,7 @@ def _dijkstra(G, start, end=None):
                 predecessors[neigh] = pt
     return distances, predecessors
 
-def shortest_path(G, start, end, sp_cache):
+def _shortest_path(G, start, end, sp_cache):
     """
     finds a single shortest path from given start point to the given end point.
     first check whether it is in the cached shortest path table (SP_TABLE),
@@ -262,7 +264,7 @@ def find_all_shortest_paths(clusters, sp_cache, G):
     for src in clusters:
         for dest in clusters:
             if src != dest:
-                shortest_path(G, src.label, dest.label, sp_cache)
+                _shortest_path(G, src.label, dest.label, sp_cache)
 
 def inter_cost(cluster):
     """
@@ -271,39 +273,42 @@ def inter_cost(cluster):
     by the centroid of the cluster.
     cluster: given cluster
     """
-    inter_sum = 0
-    for src in cluster.points:
-        for dest in cluster.points:
-            if src != dest:
-                inter_sum += src.frequency(dest)
-    return int(inter_sum)    # because (a, b) and (b, a) is the same
+    def _p2p(point):
+        _p_sum = 0
+        for pt in cluster.points:
+            if point != pt:
+                _p_sum += point.frequency(pt)
+        return _p_sum
 
-def intra_cost(clusters, cluster):
+    return int(sum(map(_p2p, cluster.points)))
+
+def intra_cost(points, cluster):
     """
     calculates the intra network cost.
     each two points belong to different clusters.
     clusters: the whole network
     cluster: given cluster
     """
-    intra_sum = 0
-    for src_pt in cluster.points:
-        for peer in clusters:
-            if peer != cluster:
-                for dest_pt in peer.points:
-                    intra_sum += src_pt.frequency(dest_pt)
-    return int(intra_sum*2)
-    
-def _door_matt(sclst, eclst):
+    def _p2p(point):
+        _p_sum = 0
+        for pt in points:
+            if point != pt and pt not in cluster.points:
+                _p_sum += point.frequency(pt)
+        return _p_sum
+    return int(sum(map(_p2p, cluster.points)))
+
+def _c2c_cost(sclst, eclst):
     """
     calculates the communication frequency between two clusters
     sclst: source cluster
     eclst: end cluster
     """
-    dm_sum = 0
-    for src in sclst.points:
-        for dest in eclst.points:
-            dm_sum += src.frequency(dest)
-    return int(dm_sum)
+    def _c2c(point):
+        _c_sum = 0
+        for pt in eclst.points:
+            _c_sum += point.frequency(pt)
+        return _c_sum
+    return int(sum(map(_c2c, sclst.points)))
 
 def door_matt_cost(clusters, cluster, sp_cache):
     """
@@ -316,22 +321,47 @@ def door_matt_cost(clusters, cluster, sp_cache):
     dm_sum = 0
     for path in sp_cache.values():
         if (len(path) > 2) and (cluster.label in path[1:-1]):
-            src = find_cluster(clusters, path[0])
-            dest = find_cluster(clusters, path[-1])
-            dm_sum += _door_matt(src, dest)
+            src = _find_cluster(clusters, path[0])
+            dest = _find_cluster(clusters, path[-1])
+            dm_sum += _c2c_cost(src, dest)
     return int(dm_sum)
 
+def total_cost(clusters):
+    """
+    calculates total cost of the backbone network.
+    """
+    inter = 0
+    intra = 0
+    dm = 0
+    for clst in clusters:
+        # print clst.label, "has cost: ", str(clst.inter_cost), str(clst.intra_cost), str(clst.dm_cost)
+        inter += clst.inter_cost
+        intra += clst.intra_cost
+        dm += clst.dm_cost
+    total = inter + intra + dm
+    #iic = inter + intra
+    #print "inter " + str(inter) + " intra " + str(intra) + " dm " + str(dm) + " total " + str(total) + " iic " + str(iic)
+    print str(inter) + "\t" + str(intra) + "\t" + str(dm) + "\t" + str(total) # + " in " + str(inr)
+    return inter, intra, dm, total
+
 def draw_plot(points, clusters):
-    plot.title("k-means back bone network")
+    """
+    draws plot with points and clusters.
+    Each centroid is a triangle connected by its neighbours.
+    Each cluster covers its points with a circle.
+    """
+    plot.figure().clear() # clean the canvas, ready for new draw
+    plot.title("k-means Backbone Network")
     plot.axis([-1, 26, -1, 26])
     plot.xticks(range(-1, 26, 1))
     plot.yticks(range(-1, 26, 1))
-    # plot.plot([pt.x for pt in points], [pt.y for pt in points], 'o')
+
     for pt in points:
+        # draws the point id
         plot.text(pt.x+0.1, pt.y+0.1, str(pt.id))
+
     for clst in clusters:
         color = tuple(numpy.random.rand(1, 3)[0])
-        print color
         cir = plot.Circle((clst.centroid.x, clst.centroid.y), radius=clst.radius, alpha=0.3, fc=color)
         plot.gca().add_patch(cir)
         plot.plot([clst.centroid.x], [clst.centroid.y], '^')
@@ -339,70 +369,68 @@ def draw_plot(points, clusters):
 
         draw_connections(plot, clusters, SP_TABLE)
     plot.grid(True)
-    plot.show()
+    #plot.show()
+    plot.savefig("./" + str(len(clusters)) + ".png", format="png")
 
 def draw_connections(plot, clusters, sp_cache):
+    """
+    draws the connection between two clusters.
+    """
     for path in sp_cache:
-        clsts = [find_cluster(clusters, lb) for lb in sp_cache[path]]
-        plot.plot([c.centroid.x for c in clsts], [c.centroid.y for c in clsts], '-k', linewidth=0.05)
+        clsts = [_find_cluster(clusters, step) for step in sp_cache[path]]
+        plot.plot([c.centroid.x for c in clsts], [c.centroid.y for c in clsts], '-k', linewidth=0.09)
 
-def total_cost(clusters):
-    inter = 0
-    intra = 0
-    inr = 0
-    dm = 0
-    for clst in clusters:
-        # print clst.label, "has cost: ", str(clst.inter_cost), str(clst.intra_cost), str(clst.dm_cost)
-        inter += clst.inter_cost
-        intra += clst.intra_cost
-        dm += clst.dm_cost
-        #total += (clst.inter_cost + clst.intra_cost + clst.dm_cost)
-    total = inter + intra + dm
-    inr = inter + intra
-    print "inter " + str(inter) + " intra " + str(intra) + " dm " + str(dm) + " total " + str(total) + " in " + str(inr)
-    return inter, intra, dm, total
-
-def draw_cost_plot(hori, verts):
-    plot.title('find cost')
+def draw_cost_plot(hori, verts, iic=False):
+    """
+    draws a plot has the costs of different network.
+    """
+    plot.figure().clear()
+    if not iic: title = "Network cost"
+    else: title = "Network cost with IIC"
+    plot.title(title)
     plot.xticks(range(-1, 100, 1))
-    
-    _draw_line(plot, hori, verts[0], 'g', 'inter')
-    _draw_line(plot, hori, verts[1], 'b', 'intra')
-    _draw_line(plot, hori, verts[2], 'r', 'door matt')
-    _draw_line(plot, hori, verts[3], 'k', 'total')
-    v = []
-    for i in range(len(verts[0])):
-        v.append(verts[0][i] + verts[1][i])
-    _draw_line(plot, hori, v, 'y', 'inter + intra')
-    # plot.plot(hori, vert, '-o')
+
+    # normally only draw inter-cost, intra-cost, door matt effect and total cost.
+    _draw_line(plot, hori, verts[0], 'g', 'IEC')
+    _draw_line(plot, hori, verts[1], 'b', 'IAC')
+    _draw_line(plot, hori, verts[2], 'r', 'DMC')
+    _draw_line(plot, hori, verts[3], 'k', 'TOTAL')
+
+    # if want to watch inter-intra cost
+    if iic:
+        v = map(lambda iec, iac: iec + iac, verts[0], verts[1])
+        _draw_line(plot, hori, v, 'm', 'IIC')
     
     plot.grid(True)
-    plot.show()
+    if iic:
+        plot.savefig("./iic.png", format='png')
+    else:
+        plot.savefig("./normal.png", format='png')
+    #plot.show()
     
 def _draw_line(plot, hori, vert, color, text):
+    """
+    draws a plot line, with given x-axis and y-axis values, color and annotation text.
+    """
     plot.plot(hori, vert, '-o'+color)
-    plot.text(hori[-1]-3, vert[-1]+2, text)
+    plot.text(hori[-1]-3, vert[-1]+2, text, color=color)
     
 DEBUG = False
 
 def main():
-    Ks = None
     if DEBUG:
         Ks = [10]
     else:
-        Ks = [10]
-        #Ks = [3, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 25, 30]
+        Ks = [3, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 25, 30]
         #Ks = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
-        #Ks = range(1, 10)
+        #Ks = range(40, 51)
     
     iec = []
     iac = []
     dmc = []
     costs = []
     
-    points = create_points(25, 200)
-
-    clusters = None
+    points = create_points(25, 100)
     
     for k in Ks:
         print "==========================", k, "=========================="
@@ -419,7 +447,7 @@ def main():
     
         for clst in clusters:
             clst.inter_cost = inter_cost(clst)
-            clst.intra_cost = intra_cost(clusters, clst)
+            clst.intra_cost = intra_cost(points, clst)
             clst.dm_cost = door_matt_cost(clusters, clst, SP_TABLE)
 
         ret = total_cost(clusters)
@@ -427,9 +455,9 @@ def main():
         iac.append(ret[1])
         dmc.append(ret[2])
         costs.append(ret[3])
-        # costs.append(total_cost(clusters))
+        draw_plot(points, clusters)
     draw_cost_plot(Ks, [iec, iac, dmc, costs])
-    draw_plot(points, clusters)
+    draw_cost_plot(Ks, [iec, iac, dmc, costs], iic=True)
 
 if __name__ == '__main__':
     if DEBUG:
