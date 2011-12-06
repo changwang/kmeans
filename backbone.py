@@ -465,17 +465,7 @@ def main():
         Ks = [10]
     else:
         Ks = [3, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 25, 30]
-        #Ks = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
-        #Ks = range(40, 51)
-        #Ks = [10]
-    
-    # iec = []
-    # iac = []
-    # dmc = []
-    # costs = []
-    
-    distances = map(lambda x: math.sqrt(x) * 25 / 2.0, range(2, 11))
-    
+
     points = create_points(25, 100)
     
     iec = []
@@ -483,31 +473,33 @@ def main():
     dmc = []
     costs = []
     for k in Ks:
-     print "==========================", k, "=========================="
-     clusters = create_clusters(25, k)
+        print "==========================", k, "=========================="
+        clusters = create_clusters(25, k)
 
-     kmeans(points, clusters)
-    #        print "Finished creating kmeans algorithm"
+        kmeans(points, clusters)
+        # print "Finished creating kmeans algorithm"
 
-     create_backbone_network(GRAPH, clusters, math.sqrt(2)*25/2.0)
-    #        print "Finished creating backbone network"
+        create_backbone_network(GRAPH, clusters, math.sqrt(2)*25/2.0)
+        # print "Finished creating backbone network"
 
-     find_all_shortest_paths(clusters, SP_TABLE, GRAPH)
-    #        print "Finished finding all shortest paths"
+        find_all_shortest_paths(clusters, SP_TABLE, GRAPH)
+        # print "Finished finding all shortest paths"
 
-     for clst in clusters:
-         clst.inter_cost = inter_cost(clst)
-         clst.intra_cost = intra_cost(points, clst)
-         clst.dm_cost = door_matt_cost(clusters, clst, SP_TABLE)
+        for clst in clusters:
+            clst.inter_cost = inter_cost(clst)
+            clst.intra_cost = intra_cost(points, clst)
+            clst.dm_cost = door_matt_cost(clusters, clst, SP_TABLE)
 
-     ret = total_cost(clusters)
-     iec.append(ret[0])
-     iac.append(ret[1])
-     dmc.append(ret[2])
-     costs.append(ret[3])
-     #draw_plot(points, clusters)
+        ret = total_cost(clusters)
+        iec.append(ret[0])
+        iac.append(ret[1])
+        dmc.append(ret[2])
+        costs.append(ret[3])
+        #draw_plot(points, clusters)
     draw_cost_plot(Ks, [iec, iac, dmc, costs])
     draw_cost_plot(Ks, [iec, iac, dmc, costs], iic=True)
+
+#    distances = map(lambda x: math.sqrt(x) * 25 / 2.0, range(2, 11))
 #    distance_dmc(distances, Ks, points)
 
 if __name__ == '__main__':
