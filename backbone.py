@@ -1,6 +1,7 @@
 #!/opt/python/bin/python
 
 import timeit
+import datetime
 import numpy
 import math
 import sys
@@ -274,11 +275,11 @@ def inter_cost(cluster):
     cluster: given cluster
     """
     def _p2p(point):
-        _p_sum = 0
+        _freq_sum = 0
         for pt in cluster.points:
             if point != pt:
-                _p_sum += point.frequency(pt)
-        return _p_sum
+                _freq_sum += point.frequency(pt)
+        return _freq_sum
 
     return int(sum(map(_p2p, cluster.points)))
 
@@ -290,11 +291,11 @@ def intra_cost(points, cluster):
     cluster: given cluster
     """
     def _p2p(point):
-        _p_sum = 0
+        _freq_sum = 0
         for pt in points:
             if point != pt and pt not in cluster.points:
-                _p_sum += point.frequency(pt)
-        return _p_sum
+                _freq_sum += point.frequency(pt)
+        return _freq_sum
     return int(sum(map(_p2p, cluster.points)))
 
 def _c2c_cost(sclst, eclst):
@@ -367,12 +368,12 @@ def draw_plot(points, clusters):
         plot.plot([clst.centroid.x], [clst.centroid.y], '^')
         plot.plot([pt.x for pt in clst.points], [pt.y for pt in clst.points], 'o')
 
-        draw_connections(plot, clusters, SP_TABLE)
+        _draw_connections(plot, clusters, SP_TABLE)
     plot.grid(True)
     #plot.show()
-    plot.savefig("./" + str(len(clusters)) + ".png", format="png")
+    plot.savefig("./" + str(len(clusters)) + " - " + str(datetime.datetime.now()) + ".png", format="png")
 
-def draw_connections(plot, clusters, sp_cache):
+def _draw_connections(plot, clusters, sp_cache):
     """
     draws the connection between two clusters.
     """
@@ -403,9 +404,9 @@ def draw_cost_plot(hori, verts, iic=False):
     
     plot.grid(True)
     if iic:
-        plot.savefig("./iic.png", format='png')
+        plot.savefig("./" + str(datetime.datetime.now()) + "iic.png", format='png')
     else:
-        plot.savefig("./normal.png", format='png')
+        plot.savefig("./" + str(datetime.datetime.now()) + "normal.png", format='png')
     #plot.show()
     
 def _draw_line(plot, hori, vert, color, text):
@@ -414,6 +415,48 @@ def _draw_line(plot, hori, vert, color, text):
     """
     plot.plot(hori, vert, '-o'+color)
     plot.text(hori[-1]-3, vert[-1]+2, text, color=color)
+    
+def draw_door_matts(hori, verts):
+    """
+    draws a plot shows how distance affects door matt effect.
+    """
+    plot.figure().clear()
+    plot.title("Door Matt Effect")
+    plot.xticks(hori)
+    _draw_line(plot, hori, verts, 'b', 'door matt effect')
+    plot.grid(True)
+    plot.savefig("./door_matt_eff.png", format='png')
+
+def distance_dmc(distances, Ks, points):
+    """
+    calculates total "door matt effect" of the network,
+    but the network is created by different distances.
+    """
+    doors = []
+    for d in distances:
+        dmc = []
+        for k in Ks:
+            print "==========================", k, "=========================="
+            clusters = create_clusters(25, k)
+
+            kmeans(points, clusters)
+    #        print "Finished creating kmeans algorithm"
+
+            create_backbone_network(GRAPH, clusters, d)
+    #        print "Finished creating backbone network"
+
+            find_all_shortest_paths(clusters, SP_TABLE, GRAPH)
+    #        print "Finished finding all shortest paths"
+
+            for clst in clusters:
+                clst.inter_cost = inter_cost(clst)
+                clst.intra_cost = intra_cost(points, clst)
+                clst.dm_cost = door_matt_cost(clusters, clst, SP_TABLE)
+
+            ret = total_cost(clusters)
+            dmc.append(ret[2])
+        doors.append(sum(dmc))
+    draw_door_matts(map(lambda d: float(format(d, ".4g")), distances), doors)
     
 DEBUG = False
 
@@ -424,40 +467,48 @@ def main():
         Ks = [3, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 25, 30]
         #Ks = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
         #Ks = range(40, 51)
+        #Ks = [10]
+    
+    # iec = []
+    # iac = []
+    # dmc = []
+    # costs = []
+    
+    distances = map(lambda x: math.sqrt(x) * 25 / 2.0, range(2, 11))
+    
+    points = create_points(25, 100)
     
     iec = []
     iac = []
     dmc = []
     costs = []
-    
-    points = create_points(25, 100)
-    
     for k in Ks:
-        print "==========================", k, "=========================="
-        clusters = create_clusters(25, k)
+     print "==========================", k, "=========================="
+     clusters = create_clusters(25, k)
 
-        kmeans(points, clusters)
-#        print "Finished creating kmeans algorithm"
+     kmeans(points, clusters)
+    #        print "Finished creating kmeans algorithm"
 
-        create_backbone_network(GRAPH, clusters, math.sqrt(2)*25/2.0)
-#        print "Finished creating backbone network"
+     create_backbone_network(GRAPH, clusters, math.sqrt(2)*25/2.0)
+    #        print "Finished creating backbone network"
 
-        find_all_shortest_paths(clusters, SP_TABLE, GRAPH)
-#        print "Finished finding all shortest paths"
-    
-        for clst in clusters:
-            clst.inter_cost = inter_cost(clst)
-            clst.intra_cost = intra_cost(points, clst)
-            clst.dm_cost = door_matt_cost(clusters, clst, SP_TABLE)
+     find_all_shortest_paths(clusters, SP_TABLE, GRAPH)
+    #        print "Finished finding all shortest paths"
 
-        ret = total_cost(clusters)
-        iec.append(ret[0])
-        iac.append(ret[1])
-        dmc.append(ret[2])
-        costs.append(ret[3])
-        draw_plot(points, clusters)
+     for clst in clusters:
+         clst.inter_cost = inter_cost(clst)
+         clst.intra_cost = intra_cost(points, clst)
+         clst.dm_cost = door_matt_cost(clusters, clst, SP_TABLE)
+
+     ret = total_cost(clusters)
+     iec.append(ret[0])
+     iac.append(ret[1])
+     dmc.append(ret[2])
+     costs.append(ret[3])
+     #draw_plot(points, clusters)
     draw_cost_plot(Ks, [iec, iac, dmc, costs])
     draw_cost_plot(Ks, [iec, iac, dmc, costs], iic=True)
+#    distance_dmc(distances, Ks, points)
 
 if __name__ == '__main__':
     if DEBUG:
